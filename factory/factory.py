@@ -5,7 +5,8 @@ class WorkStation:
     _tools = {}
 
     def __init__(self, config):
-        self._resources = {}
+        self._resources = None
+        self._requirements = None
         self.config = config
         self.managers = None
         self.suppliers = None
@@ -13,6 +14,40 @@ class WorkStation:
     def connect(self, managers: list, suppliers: list) -> None:
         self.managers = managers
         self.suppliers = suppliers
+
+    def requirements(self):
+        if self._requirements:
+            return self._requirements
+
+        if not self.managers:
+            return self.config.requirements()
+
+        req = []
+        for manager in self.managers:
+            manager_req = {}
+            for requirement, options in manager.requirements().items():
+                self._resources = {}
+                for option in options:
+                    # init tool return req
+                    key = requirement + ':' + option
+                    self._resources[key] = self._tools.get(requirement)
+                    resource = 
+                    if resource:
+                        req.update(resource.req)
+        return list(req)
+
+    def _validate_suppliers(self):
+        print(f'\nValidating: {self} for requirements: {self.requirements()}')
+        requirements = self.requirements()
+        tools = set()
+        for supplier in self.suppliers:
+            tools.update(supplier.tools)
+        missing = set(requirements) - tools
+        if missing:
+            raise ValueError(
+                f'missing requirements: {missing} required for {type(self)} by {self.suppliers}.'
+            )
+        return True
 
     @property
     def tools(self):
@@ -32,23 +67,12 @@ class WorkStation:
                 supplier.build_supply_chain()
         self._build()
 
-    def _validate_suppliers(self):
-        print(f'\nValidating: {self} for requirements: {self._build_requirements()}')
-        requirements = self._build_requirements()
-        tools = set()
-        for supplier in self.suppliers:
-            tools.update(supplier.tools)
-        missing = set(requirements) - tools
-        if missing:
-            raise ValueError(
-                f'missing requirements: {missing} required for {type(self)} by {self.suppliers}.'
-            )
 
     def _gather_manager_requirements(self):
         if self.managers:
             type_set = set()
             for manager in self.managers:
-                type_set.add(type(manager._build_requirements()))
+                type_set.add(type(manager.requirements()))
 
             if len(type_set) > 1:
                 raise TypeError('managers cannot have different types of requirements')
@@ -60,7 +84,7 @@ class WorkStation:
                 raise TypeError(f'managers cannot have requirements of type {type_set}')
 
             for manager in self.managers:
-                requirements.update(manager._build_requirements())
+                requirements.update(manager.requirements())
             return requirements
 
     def _gather_resources(self):
@@ -90,22 +114,14 @@ class WorkStation:
                     name = tool_name + ':' + selection
                     self._resources[name] = self._tools[tool_name](self._gather_resources())
 
-    def _build_requirements(self):
-        if self.managers:
-            req = set()
-            for manager in self.managers:
-                for requirement in manager._build_requirements():
-                    resource = self._tools.get(requirement)
-                    if resource:
-                        req.update(resource.req)
-            return list(req)
-
 
 # Define tools to be used by Sub Processes
 class Tool:
     req = None
+    valid_options = [None]
 
     def __init__(self, option=None):
+        assert option in self.valid_options
         self.option = option
 
     def requirements(self):
