@@ -31,14 +31,18 @@ class WorkStation:
                 for option in options:
                     # init tool return req
                     key = requirement + ':' + option
+                    print(key)
                     resource = self._tools.get(requirement)
                     if resource:
                         self._resources[key] = resource(option)
                         tool_reqs = self._resources[key].requirements()
+                        print(self._resources[key], 'reqs:', tool_reqs)
                         manager_reqs.extend(tool_reqs)
+                        print('manager reqs:', manager_reqs)
             manager_reqs = combine_reqs(manager_reqs)
             reqs.extend(manager_reqs)
-        return combine_reqs(reqs)
+        combined_reqs = combine_reqs(reqs)
+        return combined_reqs
 
     def validate_supply_chain(self):
         if self.suppliers:
@@ -62,7 +66,6 @@ class WorkStation:
     @property
     def tools(self):
         return list(self._tools)
-
 
 
     def build_supply_chain(self, validate=True):
