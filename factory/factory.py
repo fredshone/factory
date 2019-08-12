@@ -22,19 +22,29 @@ class WorkStation:
         if not self.managers:
             return self.config.requirements()
 
-        req = []
+        reqs = []
         for manager in self.managers:
-            manager_req = {}
+            manager_reqs = []
             for requirement, options in manager.requirements().items():
+                # init own resources
                 self._resources = {}
                 for option in options:
                     # init tool return req
                     key = requirement + ':' + option
-                    self._resources[key] = self._tools.get(requirement)
-                    resource =
+                    resource = self._tools.get(requirement)
                     if resource:
-                        req.update(resource.req)
-        return list(req)
+                        self._resources[key] = resource(option)
+                        tool_reqs = self._resources[key].requirements()
+                        manager_reqs.extend(tool_reqs)
+            manager_reqs = combine_reqs(manager_reqs)
+            reqs.extend(manager_reqs)
+        return combine_reqs(reqs)
+
+    def validate_supply_chain(self):
+        if self.suppliers:
+            self._validate_suppliers()
+            for supplier in self.suppliers:
+                supplier.validate_supply_chain()
 
     def _validate_suppliers(self):
         print(f'\nValidating: {self} for requirements: {self.requirements()}')
@@ -53,11 +63,7 @@ class WorkStation:
     def tools(self):
         return list(self._tools)
 
-    def validate_supply_chain(self):
-        if self.suppliers:
-            self._validate_suppliers()
-            for supplier in self.suppliers:
-                supplier.validate_supply_chain()
+
 
     def build_supply_chain(self, validate=True):
         if self.suppliers and not self._resources:
@@ -121,7 +127,8 @@ class Tool:
     valid_options = [None]
 
     def __init__(self, option=None):
-        assert option in self.valid_options
+        if option not in self.valid_options:
+            raise UserWarning(f'Unsupported option: {option} at tool: {self}')
         self.option = option
 
     def requirements(self):
@@ -136,17 +143,21 @@ class Tool:
         print(f'Built {self} with {resource}')
 
 
-def combine_req(reqs: list) -> dict:
+def combine_reqs(reqs: list) -> dict:
+    print(reqs, type(reqs))
     if not reqs:
         return None
     tool_set = set()
     for req in reqs:
+        print(type(req))
         tool_set.update(list(req))
-    tools = {}
+    print(tool_set)
+    combined_reqs = {}
     for tool in tool_set:
         options = set()
         for req in reqs:
             if req.get(tool):
                 options.update(req[tool])
-        tools[tool] = list(options)
-    return tools
+        combined_reqs[tool] = list(options)
+    return combined_reqs
+

@@ -11,6 +11,7 @@ class Config:
 
 
 class ExampleTool(Tool):
+    valid_options = ['1', '2', '3']
 
     def requirements(self):
         return {req: self.option for req in self.req}
