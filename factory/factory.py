@@ -31,7 +31,7 @@ class WorkStation:
                     # init tool return req
                     key = requirement + ':' + option
                     self._resources[key] = self._tools.get(requirement)
-                    resource = 
+                    resource =
                     if resource:
                         req.update(resource.req)
         return list(req)
