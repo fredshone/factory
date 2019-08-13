@@ -3,7 +3,7 @@ import os
 import pytest
 
 sys.path.append(os.path.abspath('../factory'))
-from example import *
+from simple_example import *
 from factory.factory import combine_reqs
 sys.path.append(os.path.abspath('../tests'))
 
@@ -71,7 +71,7 @@ req3 = {
 
 test_combine_data = [
     ([req1], req1),
-    ([], None),
+    ([], {}),
     ([req1, req2], {'a': ['1', '2'], 'b': ['1', '2']}),
     ([req2, req3], {'b': ['2', '3'], 'c': ['1', '2']}),
     ([req1, req2, req3], {'a': ['1', '2'], 'b': ['1', '2', '3'], 'c': ['1', '2']}),
@@ -92,14 +92,43 @@ def test_pipeline_connection(start, b, c, d, end):
     assert d.managers == [b, c]
 
 
-def test_validate(start, b, c, d, end):
+def test_requirements(start, b, c, d, end):
     start.connect(None, [b, c])
     b.connect([start], [d])
     c.connect([start], [d])
     d.connect([b, c], [end])
     end.connect([d], None)
 
-    assert equals(start.requirements(), start.config.requirements())
+    assert equals(start.requirements(), {'a': ['1'], 'b': ['1', '2']})
     assert equals(b.requirements(), {'a': ['1'], 'b': ['1'], 'e': ['1']})
-    assert start._validate_suppliers()
+    assert equals(c.requirements(), {'a': ['1', '2'], 'c': ['1', '2']})
+    assert equals(d.requirements(), {'a': ['1', '2'], 'b': ['1', '2'], 'c': ['1'],
+                                     'e': ['1', '2'], 'f': ['1', '2']})
+
+
+def test_engage_start_suppliers(start, b, c, d, end):
+    start.connect(None, [b, c])
+    b.connect([start], [d])
+    c.connect([start], [d])
+    d.connect([b, c], [end])
+    end.connect([d], None)
+    start._engage_suppliers()
+    assert set(start._resources) == set()
+    assert set(b._resources) == {'a:1'}
+    assert set(c._resources) == {'b:1', 'b:2'}
+
+
+
+def test_engage_supply_chain(start, b, c, d, end):
+    start.connect(None, [b, c])
+    b.connect([start], [d])
+    c.connect([start], [d])
+    d.connect([b, c], [end])
+    end.connect([d], None)
+
+    start.engage_supply_chain()
+    assert set(b._resources) == {'a:1'}
+    assert set(c._resources) == {'b:1', 'b:2'}
+    assert set(d._resources) == {'a:2', 'c:2', 'c:1', 'a:1', 'b:1', 'e:1'}
+    assert set(end._resources) == set()
 

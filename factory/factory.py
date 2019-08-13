@@ -5,8 +5,8 @@ class WorkStation:
     _tools = {}
 
     def __init__(self, config):
-        self._resources = None
-        self._requirements = None
+        self._resources = {}
+        self._requirements = {}
         self.config = config
         self.managers = None
         self.suppliers = None
@@ -15,66 +15,110 @@ class WorkStation:
         self.managers = managers
         self.suppliers = suppliers
 
-    def requirements(self):
-        if self._requirements:
+    def requirements(self, usecache=True):
+        """
+        Set own requirments by search backwards through managers chain gathering required tool
+        requirements.
+
+        Note that this caches requirements dict in self._requirements.
+
+        If no managers then uses config requirements() method.
+
+        Note that all tools are initiated for all required options and stored in
+        self._resources.
+
+        :return: dict of requirements {req: [options]}
+        """
+        print(f'\nREQUIREMENT REQUEST for {self}')
+
+        if self._requirements and usecache:
+            print(f'retrieving reqs from cache at {self}: {self._requirements}')
             return self._requirements
 
         if not self.managers:
+            print(f'retrieving reqs from config at {self}: {self.config.requirements()}')
             return self.config.requirements()
 
         reqs = []
         for manager in self.managers:
             manager_reqs = []
-            for requirement, options in manager.requirements().items():
-                # init own resources
-                self._resources = {}
+            for manager_requirement, options in manager.requirements(
+                    usecache=usecache).items():
+                if manager_requirement not in list(self._tools):
+                    continue
+                # init own resources and build req
                 for option in options:
-                    # init tool return req
-                    key = requirement + ':' + option
-                    print(key)
-                    resource = self._tools.get(requirement)
-                    if resource:
-                        self._resources[key] = resource(option)
-                        tool_reqs = self._resources[key].requirements()
-                        print(self._resources[key], 'reqs:', tool_reqs)
-                        manager_reqs.extend(tool_reqs)
-                        print('manager reqs:', manager_reqs)
-            manager_reqs = combine_reqs(manager_reqs)
-            reqs.extend(manager_reqs)
-        combined_reqs = combine_reqs(reqs)
-        return combined_reqs
+                    key = manager_requirement + ':' + option
+                    if key in list(self._resources):
+                        continue  # only add to resources if new
+                    tool = self._tools.get(manager_requirement)
+                    if not tool:
+                        continue
+                    resource = tool(option)
+                    tool_reqs = resource.requirements()
+                    reqs.append(tool_reqs)
+                    print('adding', resource, '@', self, 'reqs:', resource.requirements())
+                    self._resources[key] = resource
 
-    def validate_supply_chain(self):
-        if self.suppliers:
-            self._validate_suppliers()
-            for supplier in self.suppliers:
-                supplier.validate_supply_chain()
+        # cache  reqs
+        print(f'CACHING own reqs at {self} to {reqs}')
+        self._requirements = combine_reqs(reqs)
+        return self._requirements
 
-    def _validate_suppliers(self):
-        print(f'\nValidating: {self} for requirements: {self.requirements()}')
+    def _engage_suppliers(self):
+        """
+        Engage suppliers, initiating their tools and getting their requirements.
+        :return:
+        """
+        print(f'\nENGAGING supplier tools for: {self}')
         requirements = self.requirements()
-        tools = set()
+
+        supplier_tools = {}
         for supplier in self.suppliers:
-            tools.update(supplier.tools)
-        missing = set(requirements) - tools
+            if not supplier._tools:
+                continue
+            supplier_tools.update(supplier._tools)
+
+        # check for missing requirements
+        missing = set(requirements) - set(supplier_tools)
         if missing:
             raise ValueError(
-                f'missing requirements: {missing} required for {type(self)} by {self.suppliers}.'
+                f'Missing requirements: {missing} from suppliers: {self.suppliers}.'
             )
-        return True
+
+        # activate suppliers and validate options and set their requirements
+        for supplier in self.suppliers:
+            supplier_requirement_list = []
+            # initiate in order
+            if not supplier._tools:
+                continue
+            for tool_name, tool in supplier._tools.items():
+                if not tool:
+                    continue
+                if tool_name in list(requirements):
+                    options = requirements[tool_name]
+                    for option in options:
+                        resource = tool(option)
+                        key = tool_name + ':' + option
+                        print(f'\t- Engaged tool {key}: {tool_name} with option: {option}')
+                        supplier._resources[key] = resource
+                        supplier_requirement_list.append(resource.requirements())
+            # update supplier req dict
+            supplier._requirements.update(combine_reqs(supplier_requirement_list))
+
+    def engage_supply_chain(self):
+        if self.suppliers:
+            self._engage_suppliers()
+            for supplier in self.suppliers:
+                supplier.engage_supply_chain()
+
 
     @property
     def tools(self):
         return list(self._tools)
 
 
-    def build_supply_chain(self, validate=True):
-        if self.suppliers and not self._resources:
-            if validate:
-                self._validate_suppliers()
-            for supplier in self.suppliers:
-                supplier.build_supply_chain()
-        self._build()
+
 
 
     def _gather_manager_requirements(self):
@@ -147,14 +191,11 @@ class Tool:
 
 
 def combine_reqs(reqs: list) -> dict:
-    print(reqs, type(reqs))
     if not reqs:
-        return None
+        return {}
     tool_set = set()
     for req in reqs:
-        print(type(req))
         tool_set.update(list(req))
-    print(tool_set)
     combined_reqs = {}
     for tool in tool_set:
         options = set()

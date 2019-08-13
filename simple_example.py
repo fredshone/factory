@@ -58,6 +58,7 @@ class StartProcess(WorkStation):
 class BProcess(WorkStation):
     _tools = {
         'a': Tool1,
+        'f': Tool4,
     }
 
 
@@ -77,7 +78,15 @@ class DProcess(WorkStation):
 
 
 class EndProcess(WorkStation):
-    _tools = None
+    _tools = {
+        'a': None,
+        'b': None,
+        'c': None,
+        'd': None,
+        'e': None,
+        'f': None,
+    }
+
 
     def _build(self):
         print('Building final')
