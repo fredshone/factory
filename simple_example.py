@@ -1,5 +1,6 @@
 from factory.factory import WorkStation
 from factory.factory import Tool
+from factory.factory import convert_to_unique_keys
 
 
 class Config:
@@ -14,14 +15,14 @@ class ExampleTool(Tool):
     valid_options = ['1', '2', '3']
 
     def requirements(self):
-        return {req: [self.option] for req in self.req}
+        if self.option:
+            return {req: [self.option] for req in self.req}
+        return {req: None for req in self.req}
 
     def build(self, resource):
-        for req in self.req:
-            if req not in set(list(resource)):
-                print(resource)
-                print(req)
-                raise ValueError('Missing input')
+        for requirement in convert_to_unique_keys(self.requirements()):
+            if requirement not in list(resource):
+                raise ValueError(f'Missing requirement: {requirement}')
         print(f'Built {self} with {resource}')
 
 
@@ -47,12 +48,14 @@ class Tool5(ExampleTool):
 
 class StartProcess(WorkStation):
 
-    def _build(self):
-        # build in order of dict, ie prioritise
-        print(f'--> Building: {self}')
-        for tool_name, tool in self._tools.items():
-            if tool_name in self.requirements():
-                self._resources[tool_name] = self._tools[tool_name](self._gather_resources)
+    _tools = None
+
+    # def build(self):
+    #     # build in order of dict, ie prioritise
+    #     print(f'--> Building: {self}')
+    #     for tool_name, tool in self._tools.items():
+    #         if tool_name in self.requirements():
+    #             self._resources[tool_name] = self._tools[tool_name](self._gather_resources)
 
 
 class BProcess(WorkStation):
@@ -87,15 +90,16 @@ class EndProcess(WorkStation):
         'f': None,
     }
 
-
-    def _build(self):
+    def build(self):
         print('Building final')
-
-        return {
-            'a': 'A',
-            'b': 'B',
-            'c': 'C',
-            'd': 'D',
-            'e': 'E',
-            'f': 'F',
+        self._resources = {
+            'a:1': 'A1',
+            'a:2': 'A2',
+            'b:1': 'B1',
+            'b:2': 'B2',
+            'c:1': 'C',
+            'e:1': 'E1',
+            'e:2': 'E2',
+            'f:1': 'F1',
+            'f:2': 'F2',
         }

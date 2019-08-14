@@ -4,7 +4,7 @@ import pytest
 
 sys.path.append(os.path.abspath('../factory'))
 from simple_example import *
-from factory.factory import combine_reqs
+from factory.factory import combine_reqs, operate_workstation_graph, equals
 sys.path.append(os.path.abspath('../tests'))
 
 
@@ -118,6 +118,16 @@ def test_engage_start_suppliers(start, b, c, d, end):
     assert set(c._resources) == {'b:1', 'b:2'}
 
 
+def test_bfs(start, b, c, d, end):
+    start.connect(None, [b, c])
+    b.connect([start], [d])
+    c.connect([start], [d])
+    d.connect([b, c], [end])
+    end.connect([d], None)
+
+    sequence = operate_workstation_graph(start)
+    assert sequence == [start, b, c, d, end, end, d, c, b, start]
+
 
 def test_engage_supply_chain(start, b, c, d, end):
     start.connect(None, [b, c])
@@ -126,9 +136,24 @@ def test_engage_supply_chain(start, b, c, d, end):
     d.connect([b, c], [end])
     end.connect([d], None)
 
-    start.engage_supply_chain()
+    operate_workstation_graph(start)
     assert set(b._resources) == {'a:1'}
     assert set(c._resources) == {'b:1', 'b:2'}
     assert set(d._resources) == {'a:2', 'c:2', 'c:1', 'a:1', 'b:1', 'e:1'}
-    assert set(end._resources) == set()
+    assert set(end._resources) == set(list(
+        {
+            'a:1': 'A1',
+            'a:2': 'A2',
+            'b:1': 'B1',
+            'b:2': 'B2',
+            'c:1': 'C',
+            'e:1': 'E1',
+            'e:2': 'E2',
+            'f:1': 'F1',
+            'f:2': 'F2',
+        }
+    )
+    )
+
+
 

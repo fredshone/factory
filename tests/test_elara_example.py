@@ -1,0 +1,121 @@
+import sys
+import os
+import pytest
+
+sys.path.append(os.path.abspath('../factory'))
+from elara_example import *
+from factory.factory import equals, operate_workstation_graph, build_graph_depth
+sys.path.append(os.path.abspath('../tests'))
+
+
+config = Config()
+
+
+@pytest.fixture
+def start():
+    return StartProcess(config)
+
+
+@pytest.fixture
+def post_process():
+    return PostProcess(config)
+
+
+@pytest.fixture
+def handler_process():
+    return HandlerProcess(config)
+
+
+@pytest.fixture
+def inputs_process():
+    return InputProcess(config)
+
+
+@pytest.fixture
+def config_paths():
+    return PathProcess(config)
+
+
+def test_pipeline_connection(start, post_process, handler_process, inputs_process, config_paths):
+    start.connect(None, [post_process, handler_process])
+    post_process.connect([start], [handler_process])
+    handler_process.connect([start, post_process], [inputs_process])
+    inputs_process.connect([handler_process], [config_paths])
+    config_paths.connect([inputs_process], None)
+    assert handler_process.managers == [start, post_process]
+
+
+def test_requirements(start, post_process, handler_process, inputs_process, config_paths):
+    start.connect(None, [post_process, handler_process])
+    post_process.connect([start], [handler_process])
+    handler_process.connect([start, post_process], [inputs_process])
+    inputs_process.connect([handler_process], [config_paths])
+    config_paths.connect([inputs_process], None)
+
+    assert equals(start.requirements(), {'volume_counts': ['car'], 'vkt': ['bus']})
+    assert equals(post_process.requirements(), {'volume_counts': ['bus']})
+    assert equals(handler_process.requirements(), {'events': None, 'network': None})
+    assert equals(inputs_process.requirements(), {'events_path': None, 'network_path': None})
+    assert equals(config_paths.requirements(), {})
+
+
+def test_engage_start_suppliers(start, post_process, handler_process, inputs_process, config_paths):
+    start.connect(None, [post_process, handler_process])
+    post_process.connect([start], [handler_process])
+    handler_process.connect([start, post_process], [inputs_process])
+    inputs_process.connect([handler_process], [config_paths])
+    config_paths.connect([inputs_process], None)
+
+    start._engage_suppliers()
+    assert set(start._resources) == set()
+    assert set(post_process._resources) == {'vkt:bus'}
+    assert set(handler_process._resources) == {'volume_counts:car'}
+    post_process._engage_suppliers()
+    assert set(handler_process._resources) == {'volume_counts:car', 'volume_counts:bus'}
+
+
+def test_dfs_distances(start, post_process, handler_process, inputs_process, config_paths):
+    start.connect(None, [handler_process, post_process])
+    post_process.connect([start], [handler_process])
+    handler_process.connect([start, post_process], [inputs_process])
+    inputs_process.connect([handler_process], [config_paths])
+    config_paths.connect([inputs_process], None)
+
+    build_graph_depth(start)
+
+    assert start._depth == 0
+    assert post_process._depth == 1
+    assert handler_process._depth == 2
+    assert inputs_process._depth == 3
+    assert config_paths._depth == 4
+
+
+def test_bfs(start, post_process, handler_process, inputs_process, config_paths):
+    start.connect(None, [handler_process, post_process])
+    post_process.connect([start], [handler_process])
+    handler_process.connect([start, post_process], [inputs_process])
+    inputs_process.connect([handler_process], [config_paths])
+    config_paths.connect([inputs_process], None)
+
+    sequence = operate_workstation_graph(start)
+    assert sequence == [start, post_process, handler_process, inputs_process, config_paths,
+                        config_paths, inputs_process, handler_process, post_process, start]
+
+
+def test_engage_supply_chain(start, post_process, handler_process, inputs_process, config_paths):
+    start.connect(None, [handler_process, post_process])
+    post_process.connect([start], [handler_process])
+    handler_process.connect([start, post_process], [inputs_process])
+    inputs_process.connect([handler_process], [config_paths])
+    config_paths.connect([inputs_process], None)
+
+    operate_workstation_graph(start)
+    assert set(start._resources) == set()
+    assert set(post_process._resources) == {'vkt:bus'}
+    assert set(handler_process._resources) == {'volume_counts:car', 'volume_counts:bus'}
+    assert set(inputs_process._resources) == {'events', 'network'}
+    assert set(config_paths._resources) == {'events_path', 'network_path'}
+
+
+
+
