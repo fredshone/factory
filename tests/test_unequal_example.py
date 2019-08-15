@@ -45,10 +45,10 @@ def test_requirements(start, b, c, end):
     c.connect([start, b], [end])
     end.connect([c], None)
 
-    assert equals(start.requirements(), {'a': ['1'], 'b': ['2']})
-    assert equals(b.requirements(), {'a': ['2']})
-    assert equals(c.requirements(), {'a': ['1', '2'], 'b': ['2']})
-    assert equals(end.requirements(), {})
+    assert equals(start.get_requirements(), {'a': ['1'], 'b': ['2']})
+    assert equals(b.get_requirements(), {'a': ['2']})
+    assert equals(c.get_requirements(), {'a': ['1', '2'], 'b': ['2']})
+    assert equals(end.get_requirements(), {})
 
 
 def test_engage_start_suppliers(start, b, c, end):
@@ -56,12 +56,13 @@ def test_engage_start_suppliers(start, b, c, end):
     b.connect([start], [c])
     c.connect([start, b], [end])
     end.connect([c], None)
+
     start._engage_suppliers()
-    assert set(start._resources) == set()
-    assert set(b._resources) == {'b:2'}
-    assert set(c._resources) == {'a:1', 'b:2'}
+    assert set(start.resources) == set()
+    assert set(b.resources) == {'b:2'}
+    assert set(c.resources) == {'a:1', 'b:2'}
     b._engage_suppliers()
-    assert set(c._resources) == {'a:1', 'a:2', 'b:2'}
+    assert set(c.resources) == {'a:1', 'a:2', 'b:2'}
 
 
 def test_bfs(start, b, c, end):
@@ -81,9 +82,9 @@ def test_engage_supply_chain(start, b, c, end):
     end.connect([c], None)
 
     operate_workstation_graph(start)
-    assert set(b._resources) == {'b:2'}
-    assert set(c._resources) == {'a:1', 'a:2', 'b:2'}
-    assert set(end._resources) == set(list(
+    assert set(b.resources) == {'b:2'}
+    assert set(c.resources) == {'a:1', 'a:2', 'b:2'}
+    assert set(end.resources) == set(list(
         {
             'a:1': 'A1',
             'a:2': 'A2',

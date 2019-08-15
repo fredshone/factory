@@ -6,7 +6,7 @@ class Config:
     def __init__(self):
         pass
 
-    def requirements(self):
+    def get_requirements(self):
         return {'volume_counts': ['car'], 'vkt': ['bus']}
 
 
@@ -24,7 +24,7 @@ class VolumeCounts(ExampleTool):
     req = ['network', 'events']
     valid_options = ['car', 'bus']
 
-    def requirements(self):
+    def get_requirements(self):
         return {req: None for req in self.req}
 
 
@@ -32,7 +32,7 @@ class ModeShare(ExampleTool):
     req = ['network', 'events']
     valid_options = ['all']
 
-    def requirements(self):
+    def get_requirements(self):
         return {req: None for req in self.req}
 
 
@@ -54,24 +54,24 @@ class GetPath(ExampleTool):
 
 # Work stations
 class StartProcess(WorkStation):
-    _tools = None
+    tools = None
 
 
 class PostProcess(WorkStation):
-    _tools = {
+    tools = {
         'vkt': VKT,
     }
 
 
 class HandlerProcess(WorkStation):
-    _tools = {
+    tools = {
         'volume_counts': VolumeCounts,
         'mode_share': ModeShare,
     }
 
 
 class InputProcess(WorkStation):
-    _tools = {
+    tools = {
         'events': Events,
         'plans': Plans,
         'network': Network
@@ -79,7 +79,7 @@ class InputProcess(WorkStation):
 
 
 class PathProcess(WorkStation):
-    _tools = {
+    tools = {
         'network_path': GetPath,
         'events_path': GetPath,
         'plans_path': GetPath,

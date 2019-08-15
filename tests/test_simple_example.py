@@ -11,21 +11,6 @@ sys.path.append(os.path.abspath('../tests'))
 config = Config()
 
 
-def equals(d1, d2):
-    if not d1 and not d2:
-        return True
-    if not len(d1) == len(d2):
-        return False
-    if not sorted(list(d1)) == sorted(list(d2)):
-        return False
-    for d1k, d1v, in d1.items():
-        if d1k not in list(d2):
-            return False
-        if not sorted(d1v) == sorted(d2[d1k]):
-            return False
-    return True
-
-
 @pytest.fixture
 def start():
     return StartProcess(config)
@@ -53,7 +38,7 @@ def end():
 
 def test_tool_requirements():
     tool = Tool1(option='1')
-    assert equals(tool.requirements(), {'a': ['1'], 'b': ['1'], 'e': ['1']})
+    assert equals(tool.get_requirements(), {'a': ['1'], 'b': ['1'], 'e': ['1']})
 
 
 req1 = {
@@ -99,10 +84,10 @@ def test_requirements(start, b, c, d, end):
     d.connect([b, c], [end])
     end.connect([d], None)
 
-    assert equals(start.requirements(), {'a': ['1'], 'b': ['1', '2']})
-    assert equals(b.requirements(), {'a': ['1'], 'b': ['1'], 'e': ['1']})
-    assert equals(c.requirements(), {'a': ['1', '2'], 'c': ['1', '2']})
-    assert equals(d.requirements(), {'a': ['1', '2'], 'b': ['1', '2'], 'c': ['1'],
+    assert equals(start.get_requirements(), {'a': ['1'], 'b': ['1', '2']})
+    assert equals(b.get_requirements(), {'a': ['1'], 'b': ['1'], 'e': ['1']})
+    assert equals(c.get_requirements(), {'a': ['1', '2'], 'c': ['1', '2']})
+    assert equals(d.get_requirements(), {'a': ['1', '2'], 'b': ['1', '2'], 'c': ['1'],
                                      'e': ['1', '2'], 'f': ['1', '2']})
 
 
@@ -113,9 +98,9 @@ def test_engage_start_suppliers(start, b, c, d, end):
     d.connect([b, c], [end])
     end.connect([d], None)
     start._engage_suppliers()
-    assert set(start._resources) == set()
-    assert set(b._resources) == {'a:1'}
-    assert set(c._resources) == {'b:1', 'b:2'}
+    assert set(start.resources) == set()
+    assert set(b.resources) == {'a:1'}
+    assert set(c.resources) == {'b:1', 'b:2'}
 
 
 def test_bfs(start, b, c, d, end):
@@ -137,10 +122,10 @@ def test_engage_supply_chain(start, b, c, d, end):
     end.connect([d], None)
 
     operate_workstation_graph(start)
-    assert set(b._resources) == {'a:1'}
-    assert set(c._resources) == {'b:1', 'b:2'}
-    assert set(d._resources) == {'a:2', 'c:2', 'c:1', 'a:1', 'b:1', 'e:1'}
-    assert set(end._resources) == set(list(
+    assert set(b.resources) == {'a:1'}
+    assert set(c.resources) == {'b:1', 'b:2'}
+    assert set(d.resources) == {'a:2', 'c:2', 'c:1', 'a:1', 'b:1', 'e:1'}
+    assert set(end.resources) == set(list(
         {
             'a:1': 'A1',
             'a:2': 'A2',

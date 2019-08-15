@@ -5,12 +5,12 @@ class WorkStation:
     """
     Base Class for holding dictionary of Tool objects.
     """
-    _depth = 0
-    _tools = {}
+    depth = 0
+    tools = {}
 
     def __init__(self, config):
-        self._resources = {}
-        self._requirements = {}
+        self.resources = {}
+        self.requirements = {}
         self.config = config
         self.managers = None
         self.suppliers = None
@@ -26,7 +26,7 @@ class WorkStation:
         self.managers = managers
         self.suppliers = suppliers
 
-    def requirements(self):
+    def get_requirements(self):
         """
         Set own requirments by search backwards through managers chain gathering required tool
         requirements.
@@ -40,17 +40,17 @@ class WorkStation:
 
         :return: dict of requirements {req: [options]}
         """
-        if self._requirements:
-            return self._requirements
+        if self.requirements:
+            return self.requirements
 
         if not self.managers:
             # print(f'retrieving reqs from config at {self}: {self.config.requirements()}')
-            return self.config.requirements()
+            return self.config.get_requirements()
 
         reqs = []
         for manager in self.managers:
-            for manager_requirement, options in manager.requirements().items():
-                if manager_requirement not in list(self._tools):  # ie tool not available
+            for manager_requirement, options in manager.get_requirements().items():
+                if manager_requirement not in list(self.tools):  # ie tool not available
                     continue
                 if options is None:
                     option = None
@@ -61,9 +61,9 @@ class WorkStation:
                         key = manager_requirement + ':' + option
                         self._build_manager_requirement(key, manager_requirement, option, reqs)
 
-        # cache  reqs
-        self._requirements = combine_reqs(reqs)
-        return self._requirements
+        # cache reqs
+        self.requirements = combine_reqs(reqs)
+        return self.requirements
 
     def _build_manager_requirement(
             self,
@@ -81,15 +81,15 @@ class WorkStation:
         :param reqs: full list of current requirements
         :return: None
         """
-        if key in list(self._resources):
+        if key in list(self.resources):
             return None
-        tool = self._tools.get(manager_requirement)
+        tool = self.tools.get(manager_requirement)
         if not tool:
             return None
         resource = tool(option)
-        tool_reqs = resource.requirements()
+        tool_reqs = resource.get_requirements()
         reqs.append(tool_reqs)
-        self._resources[key] = resource
+        self.resources[key] = resource
 
     def _engage_suppliers(self):
         """
@@ -97,13 +97,13 @@ class WorkStation:
         ValueError if suppliers have missing tools.
         :return:
         """
-        requirements = self.requirements()
+        requirements = self.get_requirements()
 
         supplier_tools = {}
         for supplier in self.suppliers:
-            if not supplier._tools:
+            if not supplier.tools:
                 continue
-            supplier_tools.update(supplier._tools)
+            supplier_tools.update(supplier.tools)
 
         # check for missing requirements
         missing = set(requirements) - set(supplier_tools)
@@ -116,9 +116,9 @@ class WorkStation:
         for supplier in self.suppliers:
             supplier_requirement_list = []
             # initiate in order
-            if not supplier._tools:
+            if not supplier.tools:
                 continue
-            for tool_name, tool in supplier._tools.items():
+            for tool_name, tool in supplier.tools.items():
                 if not tool:
                     continue
                 if tool_name in list(requirements):
@@ -126,19 +126,17 @@ class WorkStation:
                     if not options:
                         resource = tool(None)
                         key = tool_name
-                        # print(f'\t- Engaged tool {key}: {tool_name} with option: {option}')
-                        supplier._resources[key] = resource
-                        supplier_requirement_list.append(resource.requirements())
+                        supplier.resources[key] = resource
+                        supplier_requirement_list.append(resource.get_requirements())
 
                     else:
                         for option in options:
                             resource = tool(option)
                             key = tool_name + ':' + option
-                            # print(f'\t- Engaged tool {key}: {tool_name} with option: {option}')
-                            supplier._resources[key] = resource
-                            supplier_requirement_list.append(resource.requirements())
+                            supplier.resources[key] = resource
+                            supplier_requirement_list.append(resource.get_requirements())
             # update supplier req dict
-            supplier._requirements.update(combine_reqs(supplier_requirement_list))
+            supplier.requirements.update(combine_reqs(supplier_requirement_list))
 
     def build(self):
         """
@@ -147,13 +145,13 @@ class WorkStation:
         :return: None
         """
         # gather resources
-        resources = {}
+        supplier_resources = {}
         if self.suppliers:
             for supplier in self.suppliers:
-                resources.update(supplier._resources)
-        if self._resources:
-            for tool_name, tool in self._resources.items():
-                tool.build(resources)
+                supplier_resources.update(supplier.resources)
+        if self.resources:
+            for tool_name, tool in self.resources.items():
+                tool.build(supplier_resources)
 
 
 # Define tools to be used by Sub Processes
@@ -174,7 +172,7 @@ class Tool:
             raise UserWarning(f'Unsupported option: {option} at tool: {self}')
         self.option = option
 
-    def requirements(self) -> dict:
+    def get_requirements(self) -> dict:
         """
         Default return requirements of tool for given .option.
         Returns None if .option is None.
@@ -192,7 +190,7 @@ class Tool:
         :param resource:
         :return: None
         """
-        for requirement in convert_to_unique_keys(self.requirements()):
+        for requirement in convert_to_unique_keys(self.get_requirements()):
             if requirement not in list(resource):
                 raise ValueError(f'Missing requirement: {requirement}')
         print(f'\tBuilt {self}')
@@ -222,7 +220,7 @@ def operate_workstation_graph(start_node: WorkStation, verbose=False) -> list:
     """
 
     # stage 1:
-    _build_graph_depths(start_node)
+    build_graph_depth(start_node)
 
     # stage 2:
     visited = []
@@ -256,7 +254,7 @@ def operate_workstation_graph(start_node: WorkStation, verbose=False) -> list:
     return sequence + visited
 
 
-def _build_graph_depths(current: WorkStation, visited=None, depth=0) -> list:
+def build_graph_depth(current: WorkStation, visited=None, depth=0) -> list:
     """
     Function to recursive depth-first traverse graph of suppliers, recording workstation depth in
     graph.
@@ -273,9 +271,9 @@ def _build_graph_depths(current: WorkStation, visited=None, depth=0) -> list:
     if current.suppliers:
         depth = depth + 1
         for supplier in current.suppliers:
-            if supplier._depth < depth:
-                supplier._depth = depth
-            _build_graph_depths(supplier, visited, depth)
+            if supplier.depth < depth:
+                supplier.depth = depth
+            build_graph_depth(supplier, visited, depth)
 
     return visited
 
@@ -286,7 +284,7 @@ def order_by_distance(candidates: list) -> list:
     :param candidates: list, of workstations
     :return: list, of workstations
     """
-    return sorted(candidates, key=lambda x: x._depth, reverse=False)
+    return sorted(candidates, key=lambda x: x.depth, reverse=False)
 
 
 def combine_reqs(reqs: list) -> dict:
